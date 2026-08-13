@@ -1,5 +1,25 @@
 # 4K / widescreen state (imported 2026-08-13)
 
+## Aspect-ratio patch campaign (started 2026-08-13, in progress)
+
+**User-confirmed symptom at 3840x2160 borderless:** the 3D world view is stretched from
+a 4:3 projection; the HUD scales to fit but the render does not respect the aspect ratio.
+
+**Baseline:** game folder is vanilla (`Data` -> `Data.bak.modded`, `EngineData` ->
+`EngineData.bak.modded`; full modded backup at
+`D:\Game Mods\Kohan II Kings of War\_game_folder_backup_2026-08-13`). The ONLY active
+override is the Fonts fix in `Documents\Kohan2\data\Fonts` (required to boot on Win11).
+`k2.exe` hash-verified identical to the pristine pre-mod copy. Resolution comes from
+`Documents\Kohan2\data\User\UVars.tgi` (ResolutionX/Y 3840x2160,
+ResolutionCoopFullscreenMode=true).
+
+**Method (empirical, no user interaction):** with the game running on a map,
+`tools/mempoke.ps1` reads/writes the CE-table floats live (`6F62FC` H scaling,
+`6F6310` V scaling, `6F6300` camera zoom) and `tools/capture.ps1` screenshots the
+borderless window headlessly; stretch is measured from known geometry in the pixels.
+End goal: derive the correct H/V values as a function of aspect ratio, then ship a
+patcher (hex-edit script or launcher-poker) in this repo.
+
 Goal: run Kohan II at 3840x2160 fullscreen with a usable UI.
 
 ## What the engine already supports (verified in game files)
