@@ -1,0 +1,42 @@
+/**************************************************************************
+
+font_large.tgi - modern-Windows compatibility override
+
+Vanilla maps the CJK character sets to the Windows fonts GulimChe (Korean),
+MS Gothic (Japanese), and MingLiU (Chinese). Windows 11 no longer ships
+GulimChe or classic MingLiU; the engine substitutes Arial and fatals with
+"ERROR: Processing non-Unicode TrueType font" during SetupFonts().
+The CJK sets are removed here - the English game renders no CJK glyphs.
+Vanilla mapping, for reference:
+  hangul_jamo = GulimChe, hiragana_katakana = MS Gothic,
+  han = MingLiU, hangul_johab = GulimChe
+
+**************************************************************************/
+[Font template = Font]
+{
+	ids = large
+	name = "#font_large_name"
+	size = 14 ;; this is the Windows font size, not the actual pixel height of glyphs.
+
+	[CharacterSet]
+	{
+		ids = base
+		;; if "font" has a .ttf extension, this means it is a TrueType font that we include with the game.
+		;; if "font" does not have a .ttf extension, this means it is a TrueType font already installed with Windows.
+		font = /fonts/truetype/VILLAGE.TTF
+
+		;; VILLAGE.TTF looks bad below a point size of 14, so we are trying Arial
+		;; at 18 if we cannot get a point size of 14 for VILLAGE, as happens when
+		;; we are running in 800x600.
+		backup_font = Arial
+		backup_font_size = 18
+		use_backup_font_when_smaller_than = 14
+
+		bold = false
+		shadow = true
+		;;outline = true
+		;;antialias = false
+		shadow_opacity = .4
+		shadow_brightness = 0
+	}
+}

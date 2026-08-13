@@ -1,0 +1,27 @@
+/**************************************************************************
+
+font_medium.tgi - modern-Windows compatibility override
+
+CJK character sets removed; see font_large.tgi header for the rationale.
+
+**************************************************************************/
+[Font template = Font]
+{
+	ids = medium
+	name = "#font_medium_name"
+	size = 10 ;; this is the Windows font size, not the actual pixel height of glyphs.
+
+	[CharacterSet]
+	{
+		ids = base
+		;; if "font" has a .ttf extension, this means it is a TrueType font that we include with the game.
+		;; if "font" does not have a .ttf extension, this means it is a TrueType font already installed with Windows.
+		font = /fonts/truetype/LBRITED.TTF
+		bold = true
+		shadow = true
+		;;outline = true
+		;;antialias = false
+		shadow_opacity = .4
+		shadow_brightness = 0
+	}
+}

@@ -1,0 +1,43 @@
+/**************************************************************************
+
+font_tiny.tgi - modern-Windows compatibility override
+
+CJK character sets removed; see font_large.tgi header for the rationale.
+
+**************************************************************************/
+
+[Font template = Font]
+{
+	ids = tiny
+	name = "#font_tiny_name"
+	size = 11
+
+	[CharacterSet]
+	{
+		ids = base
+		font = Arial
+		bold = true
+		shadow = true
+		shadow_opacity = .4
+		shadow_brightness = 0
+
+	}
+}
+
+[Font template = Font]
+{
+	ids = tiny_outline
+	name = "#font_tiny_name"
+	size = 16
+
+	[CharacterSet]
+	{
+		ids = base
+		font = Arial
+		antialias = false
+		bold = true
+		outline = true
+		shadow_opacity = .4
+		shadow_brightness = 0
+	}
+}
