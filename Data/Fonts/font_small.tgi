@@ -16,7 +16,10 @@ CJK character sets removed; see font_large.tgi header for the rationale.
 		ids = base
 		;; if "font" has a .ttf extension, this means it is a TrueType font that we include with the game.
 		;; if "font" does not have a .ttf extension, this means it is a TrueType font already installed with Windows.
-		font = arial
+		;; was "arial": the 2026-05 Windows update replaced Arial with a file this 2004
+		;; engine cannot parse ("ERROR: Processing non-Unicode TrueType font"), so use a
+		;; bundled TTF the engine is proven to load.
+		font = /fonts/truetype/LBRITED.TTF
 		bold = true
 		shadow = true
 		;;outline = true

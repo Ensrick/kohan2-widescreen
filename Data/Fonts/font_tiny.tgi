@@ -15,7 +15,8 @@ CJK character sets removed; see font_large.tgi header for the rationale.
 	[CharacterSet]
 	{
 		ids = base
-		font = Arial
+		;; was Arial - see font_small.tgi for why system Arial is avoided
+		font = /fonts/truetype/LBRITED.TTF
 		bold = true
 		shadow = true
 		shadow_opacity = .4
@@ -33,7 +34,8 @@ CJK character sets removed; see font_large.tgi header for the rationale.
 	[CharacterSet]
 	{
 		ids = base
-		font = Arial
+		;; was Arial - see font_small.tgi for why system Arial is avoided
+		font = /fonts/truetype/LBRITED.TTF
 		antialias = false
 		bold = true
 		outline = true

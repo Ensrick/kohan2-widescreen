@@ -24,10 +24,11 @@ The engine's resolution list is data-driven, no exe patch required:
   space), `CameraFarPlane` 512 -> 768.
 - `Data/UVars.tgi`: `TerrainTexturePoolDesiredNumEntries` 120 -> 1240 (more terrain tiles
   visible at 4K).
-- `Data/Fonts/font_{tiny,small,medium,large}.tgi`: CJK character sets removed. Vanilla
-  maps them to GulimChe / MS Gothic / MingLiU; Windows 11 no longer ships GulimChe or
-  classic MingLiU, and the engine's Arial fallback fatals with "ERROR: Processing
-  non-Unicode TrueType font" during startup.
+- `Data/Fonts/font_{tiny,small,medium,large}.tgi`: CJK character sets removed (Windows
+  11 no longer ships GulimChe / classic MingLiU) AND all system-font references replaced
+  with bundled TTFs - the 2026-05 Windows update's Arial is unparseable by the 2004
+  engine and fatals startup with "ERROR: Processing non-Unicode TrueType font". See
+  `CHANGELOG.md` for the full diagnosis.
 
 The game mounts loose `Data\` files over `Data.rwd` (see the game's
 `startup\autoexec.txt`), so installing is just copying `Data/` into the game folder.

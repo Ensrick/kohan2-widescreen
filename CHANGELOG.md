@@ -6,11 +6,19 @@ All notable changes to the Kohan II Widescreen & 4K UI mod. Format follows
 ## [Unreleased]
 
 ### Fixed
-- Startup crash on Windows 11: `SetupFonts()` fatals with "ERROR: Processing non-Unicode
-  TrueType font" because the vanilla font definitions reference GulimChe and MingLiU,
-  which current Windows no longer ships. Override copies of
-  `Fonts/font_{tiny,small,medium,large}.tgi` drop the CJK character sets (unused by the
-  English game). Evidence: `Logs\log-188-error.log` 2026-08-13.
+- Startup crash on Windows 11 (`SetupFonts()` fatal "ERROR: Processing non-Unicode
+  TrueType font") - two independent causes, both hit the same engine error:
+  1. Vanilla font definitions reference GulimChe and MingLiU, which current Windows no
+     longer ships; the OS substitutes Arial and the engine rejects it. Override copies
+     of `Fonts/font_{tiny,small,medium,large}.tgi` drop the CJK character sets (unused
+     by the English game).
+  2. The 2026-05 Windows update replaced Arial itself with a file the 2004 engine
+     cannot parse, so `font = arial` in the small/tiny definitions (and large's
+     `backup_font`) crashed even with all CJK sets removed. Those now use the bundled
+     `/fonts/truetype/LBRITED.TTF` instead of any system font.
+  Loose-depot overrides of the font files DO load (verified via glyph-texture counts in
+  the logs). Evidence: `Logs\log-188` through `log-193`, 2026-08-13; fix confirmed
+  in-game (game boots to menu).
 
 ## [0.1.0] - 2026-08-13
 

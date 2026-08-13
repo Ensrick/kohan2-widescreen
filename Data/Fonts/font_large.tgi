@@ -28,7 +28,7 @@ Vanilla mapping, for reference:
 		;; VILLAGE.TTF looks bad below a point size of 14, so we are trying Arial
 		;; at 18 if we cannot get a point size of 14 for VILLAGE, as happens when
 		;; we are running in 800x600.
-		backup_font = Arial
+		backup_font = /fonts/truetype/LBRITED.TTF ;; was Arial - see font_small.tgi
 		backup_font_size = 18
 		use_backup_font_when_smaller_than = 14
 
