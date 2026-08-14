@@ -4,6 +4,44 @@ Kohan II builds every 3D camera's view frustum with a **hardcoded 4:3 aspect** a
 stretches that image across whatever backbuffer you run. At 16:9 the world is exactly
 1.333x too wide. This patch corrects it at runtime.
 
+> **Two patches, use the frustum one.** The original fix (`k2patch.py`) redirects only the
+> projection matrix's `_11` term. That un-stretches the *displayed* image but leaves the
+> engine's draw/cull region at 4:3, so terrain past the old 4:3 edge is never drawn (a
+> black wedge at the sides) and overlaid systems desync. The current fix
+> (`frustumpatch.py`, below) widens the frustum **bounds at the source**, so projection
+> and draw extent widen together - genuine "as if native 16:9" behaviour. It supersedes
+> the `_11` redirect (and turns it off if present). Verified live: the black band closes
+> and the world fills the full width.
+
+## The frustum fix (frustumpatch.py)
+
+The projection builder reads a bounds struct `{L,R,B,T,near,far,flag}` and computes
+`_11 = 2/(R-L)`, `_22 = 2/(B-T)`; the same `(R-L)` feeds the visible-ground/cull extent.
+The detour sits at **`k2.exe+0x49545D`** - after `edi` is reloaded from arg5 to point at
+the real bounds (arg4, the earlier `edi`, is the camera basis vectors - widening that did
+nothing, the bug that cost a night) and before `(R-L)` is consumed. It widens `L,R` about
+their midpoint by `f = realAspect / (4/3)`  (`L' = aL+bR`, `R' = bL+aR`, `a=(1+f)/2`,
+`b=(1-f)/2`), so width scales by `f` and the midpoint is preserved. Vertical FOV `(B-T)`
+is untouched => Hor+.
+
+Guards make it safe and idempotent: it only runs for **perspective** cams (`[edi+0x18]==0`)
+whose aspect is **~4:3**, so ortho/minimap/shadow cams are left alone and an
+already-widened (16:9) struct is skipped rather than compounded. All code writes suspend
+every game thread first (rewriting live code without that AV'd once). Install once after
+SteamStub decrypts; the detour then fires on every projection rebuild and self-maintains
+(the menu's 3D scene briefly shows 4:3 at launch, then corrects on its first rebuild).
+
+    py -3 frustumpatch.py --apply            # aspect from the game window
+    py -3 frustumpatch.py --apply --wait --pid <pid>   # loader use
+    py -3 frustumpatch.py --revert
+
+Known remaining: 2 of ~6 cameras still build 4:3 via a separate code path (the "stragglers"
+seen as `_11 = 7.5958` after patching) - next target.
+
+---
+
+## The original `_11` redirect (kept for reference / fallback)
+
 ## Why it must be a runtime patch, not a file edit
 
 `k2.exe` is **SteamStub-encrypted** (`.text` on-disk entropy 7.999; entry point sits in a

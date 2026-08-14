@@ -272,14 +272,19 @@ def verify(p):
 
 
 if __name__ == "__main__":
-    p = k2mem.K2()
+    pid = int(sys.argv[sys.argv.index("--pid") + 1]) if "--pid" in sys.argv else None
+    if "--wait" in sys.argv:
+        # block until SteamStub decrypts, then attach (loader use)
+        p = k2patch.wait_ready(pid, 180.0)
+    else:
+        p = k2mem.K2(pid)
     print(f"pid={p.pid} base=0x{p.base:X}")
     asp = None
     if "--aspect" in sys.argv:
         s = sys.argv[sys.argv.index("--aspect") + 1]
         asp = (float(s.split(":")[0]) / float(s.split(":")[1])) if ":" in s else float(s)
     if "--apply" in sys.argv:
-        apply(p, asp); print(); verify(p)
+        apply(p, asp, instrument="--instrument" in sys.argv); print(); verify(p)
     elif "--revert" in sys.argv:
         revert(p)
     else:

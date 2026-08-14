@@ -47,11 +47,17 @@ if ($proc.HasExited) {
     exit 1
 }
 
-# --- 2. patch once decrypted, then stay resident syncing k to the window ------------
-& py -3 (Join-Path $Here 'k2patch.py') --apply --wait --watch --pid $proc.Id 2>&1 |
+# --- 2. install the native-16:9 frustum patch once decrypted --------------------------
+# frustumpatch detours the projection builder, so it self-maintains across every
+# camera rebuild (no resident watcher needed) and widens the DRAW extent too, not just
+# the displayed projection. Wait-and-attach returns as soon as the process exits, so
+# this call blocks for the whole session.
+& py -3 (Join-Path $Here 'frustumpatch.py') --apply --wait --pid $proc.Id 2>&1 |
     ForEach-Object { Say $_ }
 if ($LASTEXITCODE -ne 0) {
-    Say "patch/watch exited with code $LASTEXITCODE (game still runs unpatched this session)"
+    Say "frustum patch exited with code $LASTEXITCODE (game runs unpatched this session)"
     exit $LASTEXITCODE
 }
+# keep the wrapper alive until the game closes so Steam shows 'running'
+while (-not $proc.HasExited) { Start-Sleep -Seconds 5 }
 Say 'session over'
