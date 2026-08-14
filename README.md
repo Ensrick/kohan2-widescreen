@@ -41,8 +41,10 @@ the fix patches the running game each session.)
 
 ### Option 0 - drop-in DLL (simplest; nothing to run)
 
-Copy **`avifil32.dll`** (from a release, or build it with `dll/build.ps1`) into your Kohan II
-game folder, next to `k2.exe`:
+Download **`avifil32.dll`** from the latest release
+([GitLab](https://gitlab.com/ensrick7/kohan2-widescreen/-/releases) /
+[GitHub](https://github.com/Ensrick/kohan2-widescreen/releases)) - or build it yourself
+with `dll/build.ps1` - and copy it into your Kohan II game folder, next to `k2.exe`:
 
 ```
 ...\Steam\steamapps\common\Kohan II\avifil32.dll
@@ -132,6 +134,14 @@ The game mounts loose `Data\` files over `Data.rwd` (see the game's
 1. Edit in the repo (or in the game's `Data\` folder, then `tools\collect.ps1`).
 2. `tools\deploy.ps1` to install.
 3. Commit and push (origin pushes to **both** GitHub and GitLab).
+
+## Known issues
+
+- The **main-menu 3D backdrop** is authored for 4:3, so the widescreen/zoom correction
+  leaves its framing a little off. This is cosmetic and menu-only - actual gameplay is
+  correct. A fix (leaving the menu camera alone) is planned.
+- The engine's manual **scroll-out limit** is unchanged; the resolution-aware default
+  already gives you a wider view on high-resolution displays.
 
 ## License & content policy
 

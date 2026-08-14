@@ -1,26 +1,48 @@
 # Changelog
 
-All notable changes to the Kohan II Widescreen & 4K UI mod. Format follows
+All notable changes to the Kohan II Widescreen mod. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-14
+
+First working widescreen release. Corrects the stretched 3D view and the cramped
+high-resolution camera - all in memory, nothing on disk is modified (`k2.exe` is
+Steam-DRM encrypted and is never touched).
+
 ### Added
-- **Aspect-ratio / widescreen runtime patch** (`tools/k2widescreen.ps1` + `k2patch.py`).
-  The engine builds every 3D camera with a hardcoded 4:3 frustum and stretches it across
-  the backbuffer (world 1.333x too wide at 16:9). k2.exe is SteamStub-encrypted so no
-  on-disk patch is possible; the loader attaches to the decrypted process and redirects
-  one `fld` at `k2.exe+0x495598` (the `_11` horizontal scale, which loads the shared
-  `1.0f` at `0x009b43ec`) to a private `k = (4/3)/realAspect`, making `_22/_11` equal the
-  true backbuffer aspect. Keeps vertical FOV, widens horizontal ("Hor+"), correct at any
-  resolution. Full write-up in `docs/ASPECT_PATCH.md`.
-- **Set-and-forget loader** (`tools/k2ws-steam.ps1`): Steam launch-options wrapper
-  (`... k2ws-steam.ps1" %command%`) that starts the game, patches on decrypt, and stays
-  resident via `k2patch.py --watch`, resyncing `k` to the live window size every 2 s -
-  covers the 4:3 splash window at startup and in-game resolution changes.
-- RE tooling that produced the fix: `tools/hwbp.py` (WOW64 hardware-breakpoint
-  find-what-writes), `k2mem.py`, `matscan.py`, `k2console.py`, `analyze.py` (static PE
-  scan proving `.text` is encrypted), `mute_k2.ps1`, `vpscan.py` (D3DVIEWPORT9 scan).
+- **Drop-in `avifil32.dll`** - the whole fix in one file. Drop it in the game folder
+  next to `k2.exe` and play; delete it to uninstall. It proxies the 3 (now 9) functions
+  the game imports from the system DLL and, once Steam's DRM decrypts the game, applies
+  the patch from inside the process. Chosen over a `winmm.dll` proxy because Steam's
+  overlay pre-loads `winmm` from the system folder, bypassing an app-folder copy.
+- **Aspect-ratio fix.** The engine builds every 3D camera with a hardcoded 4:3 frustum
+  and stretches it across the backbuffer. A detour at the projection builder
+  (`k2.exe+0x49545D`) widens the frustum bounds `(R-L)` at the source to your real screen
+  aspect, so projection **and** the drawn/culled ground widen together - true "Hor+"
+  widescreen with no black bars, vertical FOV unchanged.
+- **Resolution-aware zoom-out.** Higher-resolution displays otherwise render a fixed
+  world-extent per zoom, so the world looks cramped/close-up. The same detour scales the
+  frustum (and far plane) by `screenHeight / 1024`, so 1440p/4K show proportionally more
+  world - matching the apparent size of the game's design resolution (1280x1024).
+- **Script + editor installs** for people who prefer not to use a DLL:
+  `Kohan2Widescreen.ps1` (standalone or as a Steam launch option) and
+  `Apply-Widescreen.bat`. Dev tool: `tools/frustumpatch.py`.
+- RE tooling that produced the fix (`tools/`): `hwbp.py`, `k2mem.py`, `matscan.py`,
+  `k2console.py`, `analyze.py`, `mute_k2.ps1`, `vpscan.py`.
+
+### Known issues
+- The **main-menu 3D backdrop** is composed for 4:3, so widening/zooming it leaves the
+  framing slightly off. Gameplay is unaffected. A fix (skip the patch at the menu) is
+  planned for the next release.
+- The manual **scroll-out range** (hard-coded in the engine) is unchanged; the
+  resolution-aware default already provides the extra zoom-out on high-res displays.
+
+### Superseded
+- The earlier `_11`-redirect loader (`k2widescreen.ps1` + `k2patch.py --watch`) fixed
+  only the displayed projection, leaving the draw region at 4:3. Replaced by the
+  frustum-bounds detour above, which fixes both.
 
 ### Notes
 - Located and applied successfully (`Logs\log-203-ok.log`); pending a human visual check
