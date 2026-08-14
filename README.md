@@ -1,10 +1,28 @@
-# Kohan II Widescreen & 4K UI
+# Kohan II Widescreen
 
-Widescreen / high-resolution support and modern-Windows compatibility fixes for
-Kohan II: Kings of War v1.2.3 (Steam): a data-driven 3840x2160 mode, a hand-upscaled 4K
-interface, and a font fix for the Windows 11 startup crash. Split out of the
-[Battleborn](https://github.com/Ensrick/kohan2-battleborn) gameplay mod so display fixes
-can evolve (and eventually be shared) independently of balance changes.
+Widescreen / high-resolution support and modern-Windows compatibility for Kohan II: Kings
+of War v1.2.3 (Steam). The goal is simple: make the game render correctly on today's
+widescreen, high-resolution monitors - proper aspect ratio (no 4:3 stretch), a camera that
+doesn't feel cramped at high resolutions, and a fix for the Windows 11 startup crash. Split
+out of the [Battleborn](https://github.com/Ensrick/kohan2-battleborn) gameplay mod so
+display fixes can evolve independently of balance changes.
+
+**This is not a UI overhaul.** It does not replace the game's interface or ship a "4K GUI".
+It corrects how the 3D world is displayed and keeps the stock interface working at higher
+resolutions. (Optional higher-resolution UI *assets* exist in `Data/UI/` for players who
+want sharper stock-style interface art at 4K, but they are a convenience, not the point of
+the mod.)
+
+## What it does
+
+- **Aspect-ratio fix** (`avifil32.dll` drop-in, or the `Kohan2Widescreen.ps1` script) -
+  the 3D world renders at your real screen aspect instead of a stretched 4:3. See
+  `docs/ASPECT_PATCH.md`.
+- **Camera zoom for high resolutions** *(in progress)* - a greater zoom-out range and a
+  resolution-aware default zoom, so the view isn't cramped on 1440p/4K monitors.
+- **Windows 11 startup-crash fix** - a font override (data files); see below.
+- **Higher-resolution mode** - the engine's data-driven resolution list plus optional
+  stock-style UI assets for high-res.
 
 This comes in two parts: a **data mod** (the 4K UI + Windows 11 font fix, installed by
 copying files) and a **runtime aspect fix** (`Kohan2Widescreen.ps1`) that corrects the
