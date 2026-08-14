@@ -6,10 +6,53 @@ interface, and a font fix for the Windows 11 startup crash. Split out of the
 [Battleborn](https://github.com/Ensrick/kohan2-battleborn) gameplay mod so display fixes
 can evolve (and eventually be shared) independently of balance changes.
 
-**Status: work in progress - not yet verified in-game.** See `docs/WIDESCREEN.md` for the
-current state, engine findings, and next steps.
+This comes in two parts: a **data mod** (the 4K UI + Windows 11 font fix, installed by
+copying files) and a **runtime aspect fix** (`Kohan2Widescreen.ps1`) that corrects the
+stretched 3D view so the game renders as if it natively supported your monitor's aspect
+ratio.
 
-## How it works
+## Quick start: the widescreen aspect fix
+
+The engine draws the 3D world with a hardcoded 4:3 view and stretches it across your
+screen. This fix widens the camera to your real aspect (you see more to the sides;
+vertical view unchanged - "Hor+"), and terrain fills the full width with no black bars.
+
+**It is a memory-only patch: the game files on disk are never modified.** (`k2.exe` is
+Steam-DRM encrypted, so there is nothing to hex-edit and no cracked exe is shipped -
+the fix patches the running game each session.) It needs only Windows PowerShell, which
+every Windows install already has - no Python, no other downloads.
+
+### Option A - automatic, every launch (recommended)
+
+In Steam: **Library -> right-click _Kohan II: Kings of War_ -> Properties -> General ->
+Launch Options**, and paste (adjust the path to where you saved this repo):
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "C:\path\to\kohan2-widescreen\Kohan2Widescreen.ps1" %command%
+```
+
+Now just play. The script launches the game, waits for it to be ready, and applies the
+fix automatically. (At the main menu the 3D backdrop may look stretched for a second,
+then corrects itself - that is normal.)
+
+### Option B - one-click, when the game is already running
+
+1. Launch Kohan II and load into a map (skirmish / campaign / editor).
+2. Double-click **`Apply-Widescreen.bat`**.
+
+To force a specific aspect (e.g. ultrawide), run from a terminal:
+`powershell -ExecutionPolicy Bypass -File Kohan2Widescreen.ps1 -Aspect 21:9`.
+To undo it for the session: `... -Revert` (or just restart the game).
+
+> **Note:** run the aspect fix at your desktop/native resolution in borderless or
+> windowed-fullscreen so the game window matches your monitor; the script reads that
+> window size to compute the correction.
+
+**Status:** the aspect fix is working (native-16:9 confirmed in game). The 4K UI data
+mod is still being verified in-game - see `docs/WIDESCREEN.md`. Technical write-up of the
+aspect fix is in `docs/ASPECT_PATCH.md`.
+
+## How it works (data mod)
 
 The engine's resolution list is data-driven, no exe patch required:
 
@@ -37,6 +80,8 @@ The game mounts loose `Data\` files over `Data.rwd` (see the game's
 
 | Path | What it is |
 |---|---|
+| `Kohan2Widescreen.ps1` | The runtime aspect fix - self-contained, no dependencies. |
+| `Apply-Widescreen.bat` | Double-click convenience wrapper for the script. |
 | `Data/` | The deployable override set (display-related files only). |
 | `gimp/` | GIMP `.xcf` sources for the upscaled UI art. |
 | `ce/` | Cheat Engine table: `k2.exe`-relative statics for render scaling, camera zoom, minimap colors, plus unidentified probes. Research material for aspect correction. |
