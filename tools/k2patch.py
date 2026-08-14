@@ -25,6 +25,8 @@ _22/_11 equal the true backbuffer aspect. It is a 4-byte operand edit; no code c
     py -3 k2patch.py --verify
     py -3 k2patch.py --apply
     py -3 k2patch.py --apply --aspect 16:9
+    py -3 k2patch.py --apply --wait --watch --pid 1234   # loader mode: stay resident,
+                                                         # keep k synced to the window
     py -3 k2patch.py --revert
 """
 import ctypes
@@ -99,6 +101,7 @@ def wait_ready(pid, timeout=120.0):
     import time
     start = time.time()
     last = None
+    died = False
     while time.time() - start < timeout:
         try:
             p = k2mem.K2(pid)
@@ -109,8 +112,12 @@ def wait_ready(pid, timeout=120.0):
             if w and h and (got == ORIG_BYTES or find_existing_cave(p)):
                 return p
             last = got
+            died = not p.alive()
         except Exception as e:
             last = str(e)
+        if died:
+            raise RuntimeError("k2.exe exited before the code decrypted "
+                               "(SteamStub refused? launched without Steam?)")
         time.sleep(0.25)
     raise RuntimeError(f"k2.exe never presented the expected code at "
                        f"+{FLD_11_RVA:#x} (last saw {last}); wrong game build?")
@@ -169,6 +176,38 @@ def apply(p, aspect=None):
     return cave
 
 
+def watch(p, aspect=None, interval=2.0):
+    """Stay resident and keep the cave's k in sync with the live window size.
+
+    Why: at launch the only window may be a 4:3 splash (k=1.0, a silent no-op), and
+    the user can change resolution in-game. The patched instruction rereads the cave
+    on every frustum build, so refreshing the 4 cave bytes is all "live aspect" takes.
+    Returns when the game exits.
+    """
+    import time
+    cave = find_existing_cave(p)
+    if not cave:
+        raise RuntimeError("watch: process is not patched")
+    if aspect:
+        k = (4.0 / 3.0) / aspect
+        p.write(cave, struct.pack("<f", k))
+        print(f"watch: aspect forced, k pinned at {k:.8f}; idling until game exit",
+              flush=True)
+        while p.alive():
+            time.sleep(interval)
+        return
+    last = None
+    while p.alive():
+        w, h = backbuffer_size(p.pid)
+        if w and h and (w, h) != last:      # 0x0 = minimized/no window: keep last k
+            k = (4.0 / 3.0) / (w / h)
+            p.write(cave, struct.pack("<f", k))
+            print(f"watch: window {w}x{h} -> k = {k:.8f}", flush=True)
+            last = (w, h)
+        time.sleep(interval)
+    print("watch: game exited")
+
+
 def revert(p):
     cur = p.read(p.base + FLD_11_RVA, 6)
     if cur == ORIG_BYTES:
@@ -191,8 +230,11 @@ if __name__ == "__main__":
         asp = (float(s.split(":")[0]) / float(s.split(":")[1])) if ":" in s else float(s)
     if "--apply" in sys.argv:
         apply(p, asp)
-        print()
-        verify(p)
+        if "--watch" in sys.argv:
+            watch(p, asp)
+        else:
+            print()
+            verify(p)
     elif "--revert" in sys.argv:
         revert(p)
     else:

@@ -43,6 +43,33 @@ the per-frame matrix values does not stick - the engine rewrites them every fram
 
 ## Usage
 
+### Automatic on every launch (recommended)
+
+One-time install - Steam > Library > Kohan II: Kings of War > Properties > General >
+Launch Options:
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Users\danjo\source\repos\kohan2-widescreen\tools\k2ws-steam.ps1" %command%
+```
+
+Steam then runs the wrapper in place of the game. It starts the real game command as a
+child (inheriting Steam's environment, so SteamStub decrypts normally), patches the
+instruction the moment the code is decrypted, and stays resident until the game exits,
+keeping `k` synced to the live window size every 2 s. That last part matters twice:
+
+- at startup the only window may be a 4:3 splash, which would bake in `k = 1.0` (a
+  silent no-op) if computed once;
+- an in-game resolution change would otherwise leave a stale `k`.
+
+Because the patched instruction rereads the cave on every frustum build, refreshing the
+4 cave bytes is all "live aspect" takes - no re-patching. To uninstall, clear the
+launch options; nothing on disk is modified either way. If the game dies within
+seconds of a wrapped launch (SteamStub refusing a non-Steam parent), the wrapper logs
+it to `Logs\k2widescreen.log` and gives up cleanly - fall back to the manual loader
+below.
+
+### Manual / one-shot
+
 Steam must be running (SteamStub needs it to decrypt). From `tools/`:
 
 ```powershell
@@ -69,13 +96,19 @@ map, not the main menu), so apply the patch after a map is loaded and verify the
 | `tools/hwbp.py` | WOW64 hardware-breakpoint find-what-writes; how `0x495598` was located. |
 | `tools/k2mem.py` | Process open / read / write / module base helpers. |
 | `tools/matscan.py` | Scans committed memory for 4x4 float projection matrices. |
-| `tools/k2patch.py` | Applies/verifies/reverts the 4-byte redirect; `verify()` proves `_22/_11 == backbuffer aspect`. |
-| `tools/k2widescreen.ps1` | The loader: launch (via Steam) or attach, wait for decrypt, patch, log. |
+| `tools/k2patch.py` | Applies/verifies/reverts the 4-byte redirect; `verify()` proves `_22/_11 == backbuffer aspect`; `--watch` stays resident syncing `k` to the window. |
+| `tools/k2widescreen.ps1` | Manual loader: launch (via Steam) or attach, wait for decrypt, patch, log. |
+| `tools/k2ws-steam.ps1` | Steam launch-options wrapper: auto-patch + watch on every launch. |
+| `tools/vpscan.py` | Scans live memory for D3DVIEWPORT9 structs (render rect vs backbuffer check). |
 | `tools/mute_k2.ps1` | Per-app mute of k2 audio sessions (used during headless RE). |
 | `tools/analyze.py` | Static PE/capstone scan - kept as the record of why static patching is impossible (encrypted `.text`). |
 
 ## Status
 
-Located and patched; the loader ran successfully (`Logs\log-203-ok.log`). Final
-confirmation that the world looks correct is a human visual check at the user's native
-3840x2160.
+Located and patched; the loader ran successfully (`Logs\log-203-ok.log`). The
+launch-options wrapper (`k2ws-steam.ps1`) makes it automatic per launch. Still owed:
+
+1. a human visual check that the world looks correct at the native 3840x2160;
+2. one wrapped launch to confirm this SteamStub build accepts a non-Steam parent
+   process (it inherits Steam's environment, which is what the stub checks, but this
+   build has not been tried).

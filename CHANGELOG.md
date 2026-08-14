@@ -14,13 +14,18 @@ All notable changes to the Kohan II Widescreen & 4K UI mod. Format follows
   `1.0f` at `0x009b43ec`) to a private `k = (4/3)/realAspect`, making `_22/_11` equal the
   true backbuffer aspect. Keeps vertical FOV, widens horizontal ("Hor+"), correct at any
   resolution. Full write-up in `docs/ASPECT_PATCH.md`.
+- **Set-and-forget loader** (`tools/k2ws-steam.ps1`): Steam launch-options wrapper
+  (`... k2ws-steam.ps1" %command%`) that starts the game, patches on decrypt, and stays
+  resident via `k2patch.py --watch`, resyncing `k` to the live window size every 2 s -
+  covers the 4:3 splash window at startup and in-game resolution changes.
 - RE tooling that produced the fix: `tools/hwbp.py` (WOW64 hardware-breakpoint
   find-what-writes), `k2mem.py`, `matscan.py`, `k2console.py`, `analyze.py` (static PE
-  scan proving `.text` is encrypted), `mute_k2.ps1`.
+  scan proving `.text` is encrypted), `mute_k2.ps1`, `vpscan.py` (D3DVIEWPORT9 scan).
 
 ### Notes
 - Located and applied successfully (`Logs\log-203-ok.log`); pending a human visual check
-  at native 3840x2160.
+  at native 3840x2160, plus one wrapped launch to confirm SteamStub accepts the
+  launch-options parent.
 
 ### Fixed
 - Startup crash on Windows 11 (`SetupFonts()` fatal "ERROR: Processing non-Unicode
