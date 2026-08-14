@@ -1,13 +1,7 @@
 /**************************************************************************
 
-AVars.tgi
-Copyright � 2002-2003 TimeGate Studios
-
-DESCRIPTION: Game-independent TGRTSE AVars.
-
-REVISION HISTORY:
-drp091202 - created
-drp012903 - moved game-specific AVars out
+AVars.tgi - Kohan II Widescreen mod: engine variable overrides.
+See the repository README and LICENSE for provenance and terms.
 
 **************************************************************************/
 
