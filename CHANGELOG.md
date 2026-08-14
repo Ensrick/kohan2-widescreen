@@ -5,6 +5,23 @@ All notable changes to the Kohan II Widescreen & 4K UI mod. Format follows
 
 ## [Unreleased]
 
+### Added
+- **Aspect-ratio / widescreen runtime patch** (`tools/k2widescreen.ps1` + `k2patch.py`).
+  The engine builds every 3D camera with a hardcoded 4:3 frustum and stretches it across
+  the backbuffer (world 1.333x too wide at 16:9). k2.exe is SteamStub-encrypted so no
+  on-disk patch is possible; the loader attaches to the decrypted process and redirects
+  one `fld` at `k2.exe+0x495598` (the `_11` horizontal scale, which loads the shared
+  `1.0f` at `0x009b43ec`) to a private `k = (4/3)/realAspect`, making `_22/_11` equal the
+  true backbuffer aspect. Keeps vertical FOV, widens horizontal ("Hor+"), correct at any
+  resolution. Full write-up in `docs/ASPECT_PATCH.md`.
+- RE tooling that produced the fix: `tools/hwbp.py` (WOW64 hardware-breakpoint
+  find-what-writes), `k2mem.py`, `matscan.py`, `k2console.py`, `analyze.py` (static PE
+  scan proving `.text` is encrypted), `mute_k2.ps1`.
+
+### Notes
+- Located and applied successfully (`Logs\log-203-ok.log`); pending a human visual check
+  at native 3840x2160.
+
 ### Fixed
 - Startup crash on Windows 11 (`SetupFonts()` fatal "ERROR: Processing non-Unicode
   TrueType font") - two independent causes, both hit the same engine error:

@@ -1,5 +1,24 @@
 # 4K / widescreen state (imported 2026-08-13)
 
+## CRITICAL: k2.exe is Steam-DRM wrapped (SteamStub) - no static patch
+
+Verified 2026-08-13 with `tools/analyze.py` + entropy check:
+- `.text` on-disk entropy = 7.999 (fully encrypted); `.rdata` 3.77, `.data` 4.04 (normal).
+- AddressOfEntryPoint (0x7722ee) lies inside a trailing **`.bind`** section (entropy
+  7.983) - the classic SteamStub DRM marker. Execution starts in the stub, which
+  decrypts `.text` in memory and jumps to the real entry.
+- Zero on-disk references to any projection constant (FOV 15.0, deg2rad, cot(7.5), 0.75):
+  the real code + constants exist only after runtime decryption.
+
+**Consequence:** the aspect fix CANNOT be an on-disk byte patch (encrypted at rest), and
+we will not ship a DRM-stripped/unpacked exe. The fix is a **runtime patcher**: a loader
+that launches the game, waits for SteamStub to decrypt, locates the projection-building
+code in memory (stable at module base 0x400000 once decrypted), and patches it so the
+perspective aspect uses the true backbuffer ratio instead of the hardcoded 4:3. The
+patched instruction persists for the whole session (unlike the per-frame matrix values,
+which the engine rewrites every frame). This is the standard approach for widescreen
+fixes on DRM-wrapped games.
+
 ## Aspect-ratio patch campaign (started 2026-08-13, in progress)
 
 **User-confirmed symptom at 3840x2160 borderless:** the 3D world view is stretched from
