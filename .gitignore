@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 
 # DLL build artifacts (build locally with dll/build.ps1)
+dll/avifil32.dll
 dll/winmm.dll
 dll/*.obj
 dll/*.exp

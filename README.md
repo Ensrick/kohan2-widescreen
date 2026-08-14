@@ -23,17 +23,21 @@ the fix patches the running game each session.)
 
 ### Option 0 - drop-in DLL (simplest; nothing to run)
 
-Copy **`winmm.dll`** (from a release, or build it with `dll/build.ps1`) into your Kohan II
+Copy **`avifil32.dll`** (from a release, or build it with `dll/build.ps1`) into your Kohan II
 game folder, next to `k2.exe`:
 
 ```
-...\Steam\steamapps\common\Kohan II\winmm.dll
+...\Steam\steamapps\common\Kohan II\avifil32.dll
 ```
 
 That's the whole install. Launch the game and play - the DLL applies the fix itself every
-launch. To uninstall, delete the file. (It is a proxy for the system `winmm.dll` that the
-game already uses; it forwards those functions to the real one and adds the patch. Nothing
-else on your system is affected.)
+launch (verified: all cameras render 16:9). To uninstall, delete the file. It is a proxy for
+the system `avifil32.dll` that the game already loads; it forwards those functions to the
+real one and adds the patch. Nothing else on your system is affected.
+
+(Why `avifil32` and not, say, `winmm`: the Steam overlay pre-loads `winmm.dll` from the
+system folder before the game's copy can win, so a `winmm.dll` proxy is ignored. The
+overlay doesn't touch `avifil32`, so our copy loads.)
 
 The two options below do the same thing without a DLL, if you prefer a script.
 

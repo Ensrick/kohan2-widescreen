@@ -1,0 +1,10 @@
+EXPORTS
+    AVIStreamSetFormat
+    AVIMakeCompressedStream
+    AVIFileExit
+    AVIFileInit
+    AVIFileOpenW
+    AVIStreamWrite
+    AVIFileRelease
+    AVIStreamRelease
+    AVIFileCreateStreamW
