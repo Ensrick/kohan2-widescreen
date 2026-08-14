@@ -115,7 +115,12 @@ def dr7_for_write4(slot=0):
     return (1 << (slot * 2)) | (0b01 << (16 + slot * 4)) | (0b11 << (18 + slot * 4))
 
 
-def arm(tid, addr, disarm=False):
+def dr7_for_rw4(slot=0):
+    """Local-enable slot, RW=11 (data read OR write - x86 has no read-only), LEN=4."""
+    return (1 << (slot * 2)) | (0b11 << (16 + slot * 4)) | (0b11 << (18 + slot * 4))
+
+
+def arm(tid, addr, disarm=False, rw=False):
     h = k32.OpenThread(THREAD_ALL_ACCESS, False, tid)
     if not h:
         return False
@@ -125,7 +130,7 @@ def arm(tid, addr, disarm=False):
     if ok:
         ctx.ContextFlags = CONTEXT_DEBUG
         ctx.Dr0 = 0 if disarm else addr
-        ctx.Dr7 = 0 if disarm else dr7_for_write4(0)
+        ctx.Dr7 = 0 if disarm else (dr7_for_rw4(0) if rw else dr7_for_write4(0))
         ctx.Dr6 = 0
         ok = k32.Wow64SetThreadContext(h, ctypes.byref(ctx))
     k32.CloseHandle(h)
@@ -195,12 +200,13 @@ def start_trigger(pid, kind):
     t.start()
 
 
-def watch(pid, addr, max_hits=3, timeout=90.0, trigger=None):
+def watch(pid, addr, max_hits=3, timeout=90.0, trigger=None, rw=False, dedup=False):
     if not k32.DebugActiveProcess(pid):
         raise RuntimeError(f"DebugActiveProcess failed: {ctypes.get_last_error()}")
     k32.DebugSetProcessKillOnExit(False)   # leave the game alive when we detach
     evt = DEBUG_EVENT()
     hits = []
+    by_eip = {}          # eip -> [count, sample ctx]
     armed = False
     start = time.time()
     try:
@@ -213,9 +219,10 @@ def watch(pid, addr, max_hits=3, timeout=90.0, trigger=None):
                 ec = evt.u.Exception.ExceptionRecord.ExceptionCode
                 if ec == EXCEPTION_BREAKPOINT and not armed:
                     for tid in thread_ids(pid):
-                        arm(tid, addr)
+                        arm(tid, addr, rw=rw)
                     armed = True
-                    print(f"armed DR0=0x{addr:08X} on {len(thread_ids(pid))} threads")
+                    print(f"armed DR0=0x{addr:08X} ({'r/w' if rw else 'write'}) "
+                          f"on {len(thread_ids(pid))} threads")
                     if trigger:
                         start_trigger(pid, trigger)
                 elif ec == EXCEPTION_SINGLE_STEP:
@@ -224,29 +231,36 @@ def watch(pid, addr, max_hits=3, timeout=90.0, trigger=None):
                     # and handing one back to the app makes its top-level SEH abort
                     # with "unhandled exception - Single Step (80000004)".
                     ctx = get_ctx(evt.dwThreadId)
-                    if True:
-                        hits.append((evt.dwThreadId, ctx))
+                    hits.append((evt.dwThreadId, ctx))
+                    if dedup:
+                        e = by_eip.setdefault(ctx.Eip, [0, ctx])
+                        e[0] += 1
+                    else:
                         print(f"\n--- hit {len(hits)} --- tid={evt.dwThreadId} "
                               f"EIP=0x{ctx.Eip:08X} dr6=0x{ctx.Dr6:X} "
-                              f"(the write is the instruction just before EIP)")
+                              f"(the access is the instruction just before EIP)")
                         print(f"    eax=0x{ctx.Eax:08X} ebx=0x{ctx.Ebx:08X} ecx=0x{ctx.Ecx:08X} "
                               f"edx=0x{ctx.Edx:08X}")
                         print(f"    esi=0x{ctx.Esi:08X} edi=0x{ctx.Edi:08X} ebp=0x{ctx.Ebp:08X} "
                               f"esp=0x{ctx.Esp:08X}")
                         sts = st_regs(ctx)
                         print(f"    st0..st3 = {sts[0]:.7g} {sts[1]:.7g} {sts[2]:.7g} {sts[3]:.7g}")
-                        clear_dr6(evt.dwThreadId)
-                    else:
-                        status = DBG_EXCEPTION_NOT_HANDLED
+                    clear_dr6(evt.dwThreadId)
                 else:
                     status = DBG_EXCEPTION_NOT_HANDLED
             elif code == CREATE_THREAD_DEBUG_EVENT and armed:
-                arm(evt.dwThreadId, addr)
+                arm(evt.dwThreadId, addr, rw=rw)
             k32.ContinueDebugEvent(evt.dwProcessId, evt.dwThreadId, status)
     finally:
         for tid in thread_ids(pid):
             arm(tid, 0, disarm=True)
         k32.DebugActiveProcessStop(pid)
+    if dedup:
+        print(f"\n== {len(hits)} access(es), {len(by_eip)} distinct EIP(s) ==")
+        for eip, (n, ctx) in sorted(by_eip.items(), key=lambda kv: -kv[1][0]):
+            sts = st_regs(ctx)
+            print(f"  EIP=0x{eip:08X}  x{n:<6} st0={sts[0]:.7g}  "
+                  f"eax=0x{ctx.Eax:08X} esi=0x{ctx.Esi:08X} edi=0x{ctx.Edi:08X}")
     return hits
 
 
@@ -257,7 +271,10 @@ if __name__ == "__main__":
     hits = int(sys.argv[sys.argv.index("--hits") + 1]) if "--hits" in sys.argv else 3
     tmo = float(sys.argv[sys.argv.index("--timeout") + 1]) if "--timeout" in sys.argv else 90.0
     trig = sys.argv[sys.argv.index("--trigger") + 1] if "--trigger" in sys.argv else None
+    rw = "--rw" in sys.argv
+    dedup = "--dedup" in sys.argv
     pid = k2mem.find_pid()
-    print(f"attaching to pid {pid}, watching writes to 0x{addr:08X}")
-    got = watch(pid, addr, hits, tmo, trig)
+    print(f"attaching to pid {pid}, watching "
+          f"{'accesses (r/w)' if rw else 'writes'} to 0x{addr:08X}")
+    got = watch(pid, addr, hits, tmo, trig, rw=rw, dedup=dedup)
     print(f"\n{len(got)} hit(s); detached, game left running")
