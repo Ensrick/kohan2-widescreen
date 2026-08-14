@@ -1,0 +1,4 @@
+EXPORTS
+    timeGetTime
+    timeBeginPeriod
+    timeEndPeriod
