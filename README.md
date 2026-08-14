@@ -19,10 +19,25 @@ vertical view unchanged - "Hor+"), and terrain fills the full width with no blac
 
 **It is a memory-only patch: the game files on disk are never modified.** (`k2.exe` is
 Steam-DRM encrypted, so there is nothing to hex-edit and no cracked exe is shipped -
-the fix patches the running game each session.) It needs only Windows PowerShell, which
-every Windows install already has - no Python, no other downloads.
+the fix patches the running game each session.)
 
-### Option A - automatic, every launch (recommended)
+### Option 0 - drop-in DLL (simplest; nothing to run)
+
+Copy **`winmm.dll`** (from a release, or build it with `dll/build.ps1`) into your Kohan II
+game folder, next to `k2.exe`:
+
+```
+...\Steam\steamapps\common\Kohan II\winmm.dll
+```
+
+That's the whole install. Launch the game and play - the DLL applies the fix itself every
+launch. To uninstall, delete the file. (It is a proxy for the system `winmm.dll` that the
+game already uses; it forwards those functions to the real one and adds the patch. Nothing
+else on your system is affected.)
+
+The two options below do the same thing without a DLL, if you prefer a script.
+
+### Option A - automatic, every launch (script via Steam)
 
 In Steam: **Library -> right-click _Kohan II: Kings of War_ -> Properties -> General ->
 Launch Options**, and paste (adjust the path to where you saved this repo):
@@ -80,7 +95,8 @@ The game mounts loose `Data\` files over `Data.rwd` (see the game's
 
 | Path | What it is |
 |---|---|
-| `Kohan2Widescreen.ps1` | The runtime aspect fix - self-contained, no dependencies. |
+| `dll/` | Source for the drop-in `winmm.dll` (proxy + patcher) and its `build.ps1`. |
+| `Kohan2Widescreen.ps1` | The runtime aspect fix as a script - self-contained, no dependencies. |
 | `Apply-Widescreen.bat` | Double-click convenience wrapper for the script. |
 | `Data/` | The deployable override set (display-related files only). |
 | `gimp/` | GIMP `.xcf` sources for the upscaled UI art. |
