@@ -59,43 +59,74 @@ static void wslog(const char *fmt, ...)
 /* ---- the patch ------------------------------------------------------------- */
 #define PROJ_RVA   0x49545D
 #define RESUME_RVA 0x495465
+#define BASE_H     1024.0    /* the game's design-target vertical res (1280x1024) - the
+                                "default highest resolution" whose apparent size we match.
+                                default zoom scales out by screenHeight/BASE_H on bigger
+                                displays, so 1440p/4K don't feel cramped. */
 static const uint8_t DISPLACED[8] = {0x8b,0x02,0x8d,0x8e,0x20,0x03,0x00,0x00};
 
 static void put32(uint8_t *p, uint32_t v) { p[0]=v; p[1]=v>>8; p[2]=v>>16; p[3]=v>>24; }
 
-static void build_cave(uint8_t *buf, int *len, uintptr_t cave, uintptr_t resume, float a, float b)
+/* Widen the frustum: R-L about midX by factor (fR = aspect*zoom), B-T about midY
+   by factor (zoom), and scale the far plane by zoom so the extra ground draws.
+   aR/bR encode fR, aB/bB encode zoom; z is the far-plane multiplier (= zoom). */
+static void build_cave(uint8_t *buf, int *len, uintptr_t cave, uintptr_t resume,
+                       float aR, float bR, float aB, float bB, float z)
 {
-    uint32_t aAddr=(uint32_t)(cave+0), bAddr=(uint32_t)(cave+4), ftAddr=(uint32_t)(cave+8), epsAddr=(uint32_t)(cave+12);
-    uintptr_t code = cave + 16;
+    uint32_t aR_a=(uint32_t)(cave+0),  bR_a=(uint32_t)(cave+4);
+    uint32_t ft_a=(uint32_t)(cave+8),  eps_a=(uint32_t)(cave+12);
+    uint32_t aB_a=(uint32_t)(cave+16), bB_a=(uint32_t)(cave+20), z_a=(uint32_t)(cave+24);
+    uintptr_t code = cave + 28;
     float ft = 4.0f/3.0f, eps = 0.06f;
-    memcpy(buf+0,&a,4); memcpy(buf+4,&b,4); memcpy(buf+8,&ft,4); memcpy(buf+12,&eps,4);
-    uint8_t *c = buf + 16; int p = 0, jne_op, jae_op;
+    memcpy(buf+0,&aR,4); memcpy(buf+4,&bR,4); memcpy(buf+8,&ft,4); memcpy(buf+12,&eps,4);
+    memcpy(buf+16,&aB,4); memcpy(buf+20,&bB,4); memcpy(buf+24,&z,4);
+    uint8_t *c = buf + 28; int p = 0, jne_op, jae_op;
 
+    /* ---- guard: perspective ([edi+0x18]==0) and ~4:3 only ---- */
     c[p++]=0x80;c[p++]=0x7f;c[p++]=0x18;c[p++]=0x00;        /* cmp byte [edi+0x18],0 */
     c[p++]=0x0f;c[p++]=0x85; jne_op=p; p+=4;                /* jne SKIP */
-    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x04;                    /* fld [edi+4] */
-    c[p++]=0xd8;c[p++]=0x27;                                /* fsub [edi] */
-    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x08;                    /* fld [edi+8] */
-    c[p++]=0xd8;c[p++]=0x67;c[p++]=0x0c;                    /* fsub [edi+0xc] */
-    c[p++]=0xde;c[p++]=0xf9;                                /* fdivp */
+    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x04;                    /* fld [edi+4]  R */
+    c[p++]=0xd8;c[p++]=0x27;                                /* fsub [edi]   R-L */
+    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x08;                    /* fld [edi+8]  B */
+    c[p++]=0xd8;c[p++]=0x67;c[p++]=0x0c;                    /* fsub [edi+0xc] B-T */
+    c[p++]=0xde;c[p++]=0xf9;                                /* fdivp  (R-L)/(B-T) */
     c[p++]=0xd9;c[p++]=0xe1;                                /* fabs */
-    c[p++]=0xd8;c[p++]=0x25; put32(c+p,ftAddr); p+=4;       /* fsub [4/3] */
+    c[p++]=0xd8;c[p++]=0x25; put32(c+p,ft_a); p+=4;         /* fsub [4/3] */
     c[p++]=0xd9;c[p++]=0xe1;                                /* fabs */
-    c[p++]=0xd8;c[p++]=0x1d; put32(c+p,epsAddr); p+=4;      /* fcomp [eps] */
+    c[p++]=0xd8;c[p++]=0x1d; put32(c+p,eps_a); p+=4;        /* fcomp [eps] */
     c[p++]=0xdf;c[p++]=0xe0;c[p++]=0x9e;                    /* fnstsw ax; sahf */
     c[p++]=0x0f;c[p++]=0x83; jae_op=p; p+=4;                /* jae SKIP */
 
-    c[p++]=0xd9;c[p++]=0x07;                                /* fld [edi] */
-    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x04;                    /* fld [edi+4] */
-    c[p++]=0xd9;c[p++]=0xc1;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,aAddr); p+=4;
-    c[p++]=0xd9;c[p++]=0xc1;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,bAddr); p+=4;
+    /* ---- widen R-L about midpoint by fR: L'=aR*L+bR*R, R'=bR*L+aR*R ---- */
+    c[p++]=0xd9;c[p++]=0x07;                                /* fld [edi]   L */
+    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x04;                    /* fld [edi+4] R */
+    c[p++]=0xd9;c[p++]=0xc1;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,aR_a); p+=4;
+    c[p++]=0xd9;c[p++]=0xc1;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,bR_a); p+=4;
     c[p++]=0xde;c[p++]=0xc1;
-    c[p++]=0xd9;c[p++]=0xc2;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,bAddr); p+=4;
-    c[p++]=0xd9;c[p++]=0xc2;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,aAddr); p+=4;
+    c[p++]=0xd9;c[p++]=0xc2;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,bR_a); p+=4;
+    c[p++]=0xd9;c[p++]=0xc2;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,aR_a); p+=4;
     c[p++]=0xde;c[p++]=0xc1;
-    c[p++]=0xd9;c[p++]=0x5f;c[p++]=0x04;                    /* fstp [edi+4] */
-    c[p++]=0xd9;c[p++]=0x1f;                                /* fstp [edi] */
+    c[p++]=0xd9;c[p++]=0x5f;c[p++]=0x04;                    /* fstp [edi+4] R' */
+    c[p++]=0xd9;c[p++]=0x1f;                                /* fstp [edi]   L' */
     c[p++]=0xdd;c[p++]=0xd8;c[p++]=0xdd;c[p++]=0xd8;        /* fstp st0; fstp st0 */
+
+    /* ---- widen B-T about midpoint by zoom: B'=aB*B+bB*T, T'=bB*B+aB*T ---- */
+    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x08;                    /* fld [edi+8]  B */
+    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x0c;                    /* fld [edi+0xc] T */
+    c[p++]=0xd9;c[p++]=0xc1;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,aB_a); p+=4;
+    c[p++]=0xd9;c[p++]=0xc1;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,bB_a); p+=4;
+    c[p++]=0xde;c[p++]=0xc1;
+    c[p++]=0xd9;c[p++]=0xc2;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,bB_a); p+=4;
+    c[p++]=0xd9;c[p++]=0xc2;c[p++]=0xd8;c[p++]=0x0d; put32(c+p,aB_a); p+=4;
+    c[p++]=0xde;c[p++]=0xc1;
+    c[p++]=0xd9;c[p++]=0x5f;c[p++]=0x0c;                    /* fstp [edi+0xc] T' */
+    c[p++]=0xd9;c[p++]=0x5f;c[p++]=0x08;                    /* fstp [edi+8]   B' */
+    c[p++]=0xdd;c[p++]=0xd8;c[p++]=0xdd;c[p++]=0xd8;        /* fstp st0; fstp st0 */
+
+    /* ---- far plane *= zoom so the extra ground isn't clipped ---- */
+    c[p++]=0xd9;c[p++]=0x47;c[p++]=0x14;                    /* fld [edi+0x14] far */
+    c[p++]=0xd8;c[p++]=0x0d; put32(c+p,z_a); p+=4;          /* fmul [z] */
+    c[p++]=0xd9;c[p++]=0x5f;c[p++]=0x14;                    /* fstp [edi+0x14] */
 
     int skip = p;
     memcpy(c+p, DISPLACED, 8); p += 8;
@@ -103,21 +134,20 @@ static void build_cave(uint8_t *buf, int *len, uintptr_t cave, uintptr_t resume,
 
     put32(c+jne_op,(uint32_t)(skip-(jne_op+4)));
     put32(c+jae_op,(uint32_t)(skip-(jae_op+4)));
-    *len = 16 + p;
+    *len = 28 + p;
 }
 
-static double window_aspect(void)
+static void window_size(int *w, int *h)
 {
-    HWND best=NULL; RECT r; LONG barea=0;
-    for (HWND h=FindWindowExW(NULL,NULL,NULL,NULL); h; h=FindWindowExW(NULL,h,NULL,NULL)) {
-        DWORD pid=0; GetWindowThreadProcessId(h,&pid);
-        if (pid==GetCurrentProcessId() && GetClientRect(h,&r)) {
+    HWND best=NULL; RECT r; LONG barea=0; *w=0; *h=0;
+    for (HWND wh=FindWindowExW(NULL,NULL,NULL,NULL); wh; wh=FindWindowExW(NULL,wh,NULL,NULL)) {
+        DWORD pid=0; GetWindowThreadProcessId(wh,&pid);
+        if (pid==GetCurrentProcessId() && GetClientRect(wh,&r)) {
             LONG area=r.right*(LONG)r.bottom;
-            if (area>barea){barea=area;best=h;}
+            if (area>barea){barea=area;best=wh;}
         }
     }
-    if (best && GetClientRect(best,&r) && r.bottom>0) return (double)r.right/(double)r.bottom;
-    return 0.0;
+    if (best && GetClientRect(best,&r)) { *w=r.right; *h=r.bottom; }
 }
 
 static void suspend_others(HANDLE *out, int *n)
@@ -142,23 +172,31 @@ static DWORD WINAPI patch_thread(LPVOID u)
     uint8_t *base=(uint8_t*)GetModuleHandleW(NULL);
     uint8_t *site=base+PROJ_RVA;
     wslog("patch_thread start; base=%p site=%p", base, site);
-    double aspect=0.0; int decrypted=0;
+    int w=0,h=0; double aspect=0.0; int decrypted=0;
     for (int i=0;i<900;i++){
         int ok=0; __try{ ok=(memcmp(site,DISPLACED,8)==0); }__except(1){ ok=0; }
-        if (ok){ if(!decrypted){decrypted=1;wslog("decrypted at iter %d",i);} aspect=window_aspect(); if(aspect>0.1){wslog("aspect=%d/1000",(int)(aspect*1000));break;} }
+        if (ok){ if(!decrypted){decrypted=1;wslog("decrypted at iter %d",i);}
+                 window_size(&w,&h); if(w>0&&h>0){aspect=(double)w/h;wslog("window %dx%d aspect=%d/1000",w,h,(int)(aspect*1000));break;} }
         Sleep(200);
     }
     if(!decrypted){wslog("ABORT: never decrypted");return 0;}
-    if(aspect<=0.1){aspect=16.0/9.0;wslog("no window; assume 16:9");}
+    if(aspect<=0.1){aspect=16.0/9.0; h=1024; wslog("no window; assume 16:9 @ base");}
     if(site[0]==0xE9){wslog("already patched");return 0;}
-    float f=(float)(aspect/(4.0/3.0)), a=(1.0f+f)/2.0f, b=(1.0f-f)/2.0f;
+
+    double f = aspect/(4.0/3.0);          /* aspect widen (Hor+) */
+    double z = (double)h/BASE_H;          /* resolution zoom-out */
+    if (z < 1.0) z = 1.0;                  /* never zoom IN below base res */
+    double fR = f*z;                       /* R-L total factor: aspect * zoom */
+    float aR=(float)((1.0+fR)/2.0), bR=(float)((1.0-fR)/2.0);
+    float aB=(float)((1.0+z)/2.0),  bB=(float)((1.0-z)/2.0);
+
     uint8_t *cave=(uint8_t*)VirtualAlloc((LPVOID)0x20010000,4096,MEM_COMMIT|MEM_RESERVE,PAGE_EXECUTE_READWRITE);
     if(!cave) cave=(uint8_t*)VirtualAlloc(NULL,4096,MEM_COMMIT|MEM_RESERVE,PAGE_EXECUTE_READWRITE);
     if(!cave){wslog("ABORT: VirtualAlloc failed");return 0;}
     uint8_t blob[256]; int len=0;
-    build_cave(blob,&len,(uintptr_t)cave,(uintptr_t)(base+RESUME_RVA),a,b);
+    build_cave(blob,&len,(uintptr_t)cave,(uintptr_t)(base+RESUME_RVA),aR,bR,aB,bB,(float)z);
     memcpy(cave,blob,len);
-    uint8_t patch[8]; patch[0]=0xE9; put32(patch+1,(uint32_t)((cave+16)-(site+5))); patch[5]=patch[6]=patch[7]=0x90;
+    uint8_t patch[8]; patch[0]=0xE9; put32(patch+1,(uint32_t)((cave+28)-(site+5))); patch[5]=patch[6]=patch[7]=0x90;
     HANDLE held[256]; int nheld=0; suspend_others(held,&nheld);
     DWORD old;
     if(VirtualProtect(site,8,PAGE_EXECUTE_READWRITE,&old)){
@@ -167,7 +205,8 @@ static DWORD WINAPI patch_thread(LPVOID u)
         FlushInstructionCache(GetCurrentProcess(),site,8);
     }
     for(int i=0;i<nheld;i++){ResumeThread(held[i]);CloseHandle(held[i]);}
-    wslog("PATCHED: cave=%p f=%d/1000 froze %d threads", cave,(int)(f*1000),nheld);
+    wslog("PATCHED: cave=%p aspect_f=%d/1000 zoom_z=%d/1000 froze %d threads",
+          cave,(int)(f*1000),(int)(z*1000),nheld);
     return 0;
 }
 
