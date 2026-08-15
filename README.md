@@ -7,27 +7,21 @@ doesn't feel cramped at high resolutions, and a fix for the Windows 11 startup c
 out of the [Battleborn](https://github.com/Ensrick/kohan2-battleborn) gameplay mod so
 display fixes can evolve independently of balance changes.
 
-**This is not a UI overhaul.** It does not replace the game's interface or ship a "4K GUI".
-It corrects how the 3D world is displayed and keeps the stock interface working at higher
-resolutions. (Optional higher-resolution UI *assets* exist in `Data/UI/` for players who
-want sharper stock-style interface art at 4K, but they are a convenience, not the point of
-the mod.)
+**This is not a UI overhaul** - it does not touch or replace the game's interface. It
+corrects how the 3D world is displayed and fixes the modern-Windows startup crash.
 
 ## What it does
 
 - **Aspect-ratio fix** (`avifil32.dll` drop-in, or the `Kohan2Widescreen.ps1` script) -
   the 3D world renders at your real screen aspect instead of a stretched 4:3. See
   `docs/ASPECT_PATCH.md`.
-- **Camera zoom for high resolutions** *(in progress)* - a greater zoom-out range and a
-  resolution-aware default zoom, so the view isn't cramped on 1440p/4K monitors.
-- **Windows 11 startup-crash fix** - a font override (data files); see below.
-- **Higher-resolution mode** - the engine's data-driven resolution list plus optional
-  stock-style UI assets for high-res.
+- **Resolution-aware camera zoom** - scales the view out by `screenHeight / 1024` so the
+  world isn't cramped/close-up on 1440p/4K monitors (matches the apparent size of the
+  game's design resolution). Same drop-in DLL.
+- **Windows 11 startup-crash fix** - a small font override (data files); see below.
 
-This comes in two parts: a **data mod** (the 4K UI + Windows 11 font fix, installed by
-copying files) and a **runtime aspect fix** (`Kohan2Widescreen.ps1`) that corrects the
-stretched 3D view so the game renders as if it natively supported your monitor's aspect
-ratio.
+The widescreen and zoom fixes are a **runtime, memory-only patch** (nothing on disk is
+modified); the crash fix is a couple of data files you copy in.
 
 ## Quick start: the widescreen aspect fix
 
@@ -87,44 +81,30 @@ To undo it for the session: `... -Revert` (or just restart the game).
 > windowed-fullscreen so the game window matches your monitor; the script reads that
 > window size to compute the correction.
 
-**Status:** the aspect fix is working (native-16:9 confirmed in game). The 4K UI data
-mod is still being verified in-game - see `docs/WIDESCREEN.md`. Technical write-up of the
-aspect fix is in `docs/ASPECT_PATCH.md`.
+**Status:** the aspect fix and resolution zoom are working (confirmed in game). Technical
+write-up in `docs/ASPECT_PATCH.md`.
 
-## How it works (data mod)
+## The Windows 11 startup-crash fix (data files)
 
-The engine's resolution list is data-driven, no exe patch required:
+Separately from the runtime patch, modern Windows makes the 2004 engine fatal on launch
+with `ERROR: Processing non-Unicode TrueType font`. Two causes: the vanilla fonts
+reference GulimChe / classic MingLiU (which current Windows no longer ships), and the
+2026-05 Windows Arial is itself unparseable by the old engine. The fix is override copies
+of `Data/Fonts/font_{tiny,small,medium,large}.tgi` with the CJK sets removed and all
+system-font references swapped to a bundled TTF. See `CHANGELOG.md` for the full diagnosis.
 
-- `Data/UI/resolution.tgi` declares `[Resolution]` blocks; this mod adds `3840x2160`.
-- Each declared width expects a matching `Data/UI/<width>/` asset folder; this mod ships
-  `UI/3840/` (620+ upscaled arrows, panels, list boxes, drop-downs, CSD icons, menu
-  background, splash screen).
-- `Data/UI/Menus/main.tgi` parameterizes the menu background path by resolution folder
-  (`/UI/%s/Default/...`).
-- `Data/Localization/strings_rtse_ui.tgi` adds the `resolution_3840x2160_name` label.
-- `Data/AVars.tgi`: `InterfacePositioningWidth/Height` 1024x768 -> 1280x720 (16:9 UI
-  space), `CameraFarPlane` 512 -> 768.
-- `Data/UVars.tgi`: `TerrainTexturePoolDesiredNumEntries` 120 -> 1240 (more terrain tiles
-  visible at 4K).
-- `Data/Fonts/font_{tiny,small,medium,large}.tgi`: CJK character sets removed (Windows
-  11 no longer ships GulimChe / classic MingLiU) AND all system-font references replaced
-  with bundled TTFs - the 2026-05 Windows update's Arial is unparseable by the 2004
-  engine and fatals startup with "ERROR: Processing non-Unicode TrueType font". See
-  `CHANGELOG.md` for the full diagnosis.
-
-The game mounts loose `Data\` files over `Data.rwd` (see the game's
-`startup\autoexec.txt`), so installing is just copying `Data/` into the game folder.
+The game mounts loose `Data\` files over `Data.rwd` (see `startup\autoexec.txt`), so
+installing is just copying the `Data/Fonts/` files into the game folder.
 
 ## Repo layout
 
 | Path | What it is |
 |---|---|
-| `dll/` | Source for the drop-in `winmm.dll` (proxy + patcher) and its `build.ps1`. |
-| `Kohan2Widescreen.ps1` | The runtime aspect fix as a script - self-contained, no dependencies. |
+| `dll/` | Source for the drop-in `avifil32.dll` (proxy + patcher) and its `build.ps1`. |
+| `Kohan2Widescreen.ps1` | The runtime aspect/zoom fix as a script - self-contained, no dependencies. |
 | `Apply-Widescreen.bat` | Double-click convenience wrapper for the script. |
-| `Data/` | The deployable override set (display-related files only). |
-| `gimp/` | GIMP `.xcf` sources for the upscaled UI art. |
-| `ce/` | Cheat Engine table: `k2.exe`-relative statics for render scaling, camera zoom, minimap colors, plus unidentified probes. Research material for aspect correction. |
+| `Data/Fonts/` | The Windows 11 font-crash fix (data files). |
+| `ce/` | Cheat Engine table: `k2.exe`-relative statics for render scaling, camera zoom, minimap colors, plus unidentified probes. Research material for the runtime patch. |
 | `docs/WIDESCREEN.md` | Engine findings, community research, and the work queue. |
 | `tools/collect.ps1` | Game install -> repo (display-scoped). |
 | `tools/deploy.ps1` | Repo `Data/` -> game `Data\`. Copy-only, never deletes. |
