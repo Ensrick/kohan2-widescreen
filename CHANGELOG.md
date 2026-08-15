@@ -5,6 +5,13 @@ All notable changes to the Kohan II Widescreen mod. Format follows
 
 ## [Unreleased]
 
+### Removed
+- The 4K/high-res **UI asset pack** and its support files (`Data/UI/3840/` - 620 upscaled
+  textures, `gimp/` sources, `Data/UI/resolution.tgi`, `Data/UI/Menus/main.tgi`,
+  `Data/Localization/strings_rtse_ui.tgi`). A UI overhaul is out of scope for this repo;
+  it stays focused on the widescreen/aspect fix, resolution zoom, and the Windows 11
+  crash fix. The removed files remain recoverable in git history and in the `v0.2.0` tag.
+
 ## [0.2.0] - 2026-08-14
 
 First working widescreen release. Corrects the stretched 3D view and the cramped
